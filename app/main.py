@@ -6,6 +6,10 @@ from fastapi.responses import HTMLResponse
 import time
 from app import __version__
 from app.routes import cav, batch, telemetry, memory, dashboard
+from app.routes.streaming import router as streaming_router
+from app.routes.ingest import router as ingest_router
+from app.routes.models import router as models_router  
+
 
 app = FastAPI(
     title="EDON CAV Engine",
@@ -29,6 +33,12 @@ app.include_router(cav.router)
 app.include_router(batch.router)
 app.include_router(telemetry.router)
 app.include_router(memory.router)
+app.include_router(streaming_router)
+app.include_router(ingest_router)
+from app.routes import debug_state
+app.include_router(debug_state.router)
+app.include_router(models_router, prefix="/models", tags=["models"])
+
 
 # Mount dashboard
 # Note: Dash integration requires WSGI-to-ASGI adapter
@@ -77,6 +87,7 @@ async def root():
             "memory_summary": "GET /memory/summary",
             "memory_clear": "POST /memory/clear",
             "dashboard": "GET /dashboard",
+            "models_info": "GET /models/info",
             "docs": "/docs"
         }
     }

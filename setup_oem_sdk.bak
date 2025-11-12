@@ -1,0 +1,46 @@
+<# =====================================================================
+ EDON CAV Engine v3.2 - OEM SDK Bootstrap
+ Author: Charlie Biggins
+ ===================================================================== #>
+[CmdletBinding()]
+param(
+  [switch]$SkipBackend,
+  [switch]$SkipDashboard,
+  [switch]$SkipInstall,
+  [string]$Python = "",
+  [string]$ModelDir = ""
+)
+$ErrorActionPreference = 'Stop'
+Write-Host "??  Starting EDON OEM SDK setup..." -ForegroundColor Cyan
+$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $Root
+if ([string]::IsNullOrWhiteSpace($Python)) {
+  $Python = (Get-Command python -ErrorAction SilentlyContinue);\nif (\$cmd) { \$Python = \$cmd.Source } else { \$Python = \$null }
+  if (-not $Python) { throw "Python not found. Use -Python to specify path." }
+}
+if (-not (Test-Path ".venv")) {
+  Write-Host "Creating virtual environment (.venv)" -ForegroundColor Cyan
+  & $Python -m venv .venv
+}
+. .\.venv\Scripts\Activate.ps1
+Write-Host "? Virtual environment activated" -ForegroundColor Green
+if (-not $SkipInstall) {
+  Write-Host "Installing dependencies..." -ForegroundColor Cyan
+  python -m pip install --upgrade pip
+  pip install -r requirements.txt
+}
+$env:PYTHONPATH = $Root
+if ($ModelDir) { $env:EDON_MODEL_DIR = $ModelDir }
+else { $env:EDON_MODEL_DIR = "cav_engine_v3_2_LGBM_2025-11-08" }
+Write-Host "? Environment configured" -ForegroundColor Green
+Write-Host "PYTHONPATH=$env:PYTHONPATH"
+Write-Host "EDON_MODEL_DIR=$env:EDON_MODEL_DIR"
+if (-not $SkipBackend) {
+  Start-Job { uvicorn app.main:app --reload --port 8000 } | Out-Null
+  Write-Host "? FastAPI backend launched ? http://localhost:8000" -ForegroundColor Green
+}
+if (-not $SkipDashboard) {
+  Start-Job { streamlit run tools\cav_dashboard.py } | Out-Null
+  Write-Host "? Dashboard launched ? http://localhost:8501" -ForegroundColor Green
+}
+Write-Host "`n? EDON OEM SDK setup complete - by Charlie Biggins" -ForegroundColor Cyan

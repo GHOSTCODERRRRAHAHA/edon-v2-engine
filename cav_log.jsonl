@@ -1,0 +1,10 @@
+﻿{"ts_last":1762849888144,"temp_c":22.5,"humidity":45,"aqi":35,"cav_raw":9193,"cav_smooth":9193,"state":"restorative","bio":0.8656518039903746,"env":1.0,"circadian":1.0,"p_stress":0.13434819600962544}
+{"ts_last":1762849888144,"temp_c":22.5,"humidity":45,"aqi":35,"cav_raw":9193,"cav_smooth":9193,"state":"restorative","bio":0.8656518039903746,"env":1.0,"circadian":1.0,"p_stress":0.13434819600962544,"adaptive":{"z_cav":0.1,"sensitivity":1.0,"env_weight_adj":1.0}}
+{"ts_last":1762849888144,"temp_c":22.5,"humidity":45,"aqi":35,"cav_raw":9193,"cav_smooth":9193,"state":"restorative","bio":0.8656518039903746,"env":1.0,"circadian":1.0,"p_stress":0.13434819600962544,"adaptive":{"z_cav":0.1,"sensitivity":1.0,"env_weight_adj":1.0}}
+{"ts_last":1762849888144,"temp_c":22.5,"humidity":45,"aqi":35,"cav_raw":9193,"cav_smooth":9193,"state":"restorative","bio":0.8656518039903746,"env":1.0,"circadian":1.0,"p_stress":0.13434819600962544,"adaptive":{"z_cav":0.1,"sensitivity":1.0,"env_weight_adj":1.0}}
+{"run_id":"cc16f801-e578-404e-8bfe-7391cbca6f65","ts_last":1762849888145,"temp_c":22.5,"humidity":45,"aqi":35,"cav_raw":9193,"cav_smooth":9193,"state":"restorative","http_ms":22}
+{"run_id":"d9d1b0f3-4008-462c-995e-fcec8c811e73","ts_last":1762849888147,"temp_c":22.5,"humidity":45,"aqi":35,"cav_raw":9193,"cav_smooth":9193,"state":"restorative","http_ms":21}
+{"run_id":"de4f2aea-ea39-4170-b44c-e67ccffa492f","ts_last":1762849888150,"temp_c":22.5,"humidity":45,"aqi":35,"cav_raw":9193,"cav_smooth":9193,"state":"restorative","http_ms":23}
+{"run_id":"313d6ff2-fb28-447c-a36c-a52c1f61e178","ts_last":1762849888150,"temp_c":21,"humidity":55,"aqi":80,"cav_raw":9060,"cav_smooth":9167,"state":"restorative","http_ms":20}
+{"run_id":"e610d3d0-b189-4553-b379-5c86ce20f31a","ts_last":1762849888150,"temp_c":21,"humidity":55,"aqi":80,"cav_raw":9060,"cav_smooth":9145,"state":"restorative","http_ms":20}
+{"ts_last":1762849888150,"temp_c":21,"humidity":55,"aqi":80,"cav_raw":9060,"cav_smooth":9128,"state":"restorative","bio":0.8656518039903746,"env":0.9333333333333332,"circadian":1.0,"p_stress":0.13434819600962544}

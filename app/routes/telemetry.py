@@ -4,6 +4,7 @@ import time
 from fastapi import APIRouter
 from app.models import HealthResponse, TelemetryResponse
 from app import __version__
+from app.routes.models import _discover_model
 
 router = APIRouter(tags=["System"])
 
@@ -28,9 +29,12 @@ async def health() -> HealthResponse:
     Returns:
         HealthResponse with service status and model identifier
     """
+    model_data = _discover_model()
+    model_info = f"{model_data['name']} sha256={model_data['sha256'][:16]}... features={model_data['features']} window={model_data['window']}Hz*{model_data['sample_rate_hz']} pca={model_data['pca_dim']}"
+    
     return HealthResponse(
         ok=True,
-        model=f"EDON CAV Engine v{__version__}"
+        model=model_info
     )
 
 

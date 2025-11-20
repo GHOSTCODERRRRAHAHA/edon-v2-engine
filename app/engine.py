@@ -1,6 +1,7 @@
 """CAV Fusion Engine - Core computation logic."""
 
 from pathlib import Path
+import os
 from typing import Dict, Tuple, Optional
 
 import numpy as np
@@ -145,12 +146,21 @@ def compute_eda_extras(signal: np.ndarray) -> Dict[str, float]:
 
 
 def compute_window_features(window_dict: Dict) -> pd.DataFrame:
-    """Compute features for a single window."""
+    """
+    Compute features for a single window.
+    
+    Returns only the 6 features expected by the v3.2 model:
+    - eda_mean
+    - eda_deriv_std
+    - eda_deriv_pos_rate
+    - bvp_std
+    - acc_magnitude_mean
+    - acc_var
+    """
     features: Dict[str, float] = {}
 
     # Extract signals
     eda = np.asarray(window_dict.get("EDA", []), dtype=float)
-    temp = np.asarray(window_dict.get("TEMP", []), dtype=float)
     bvp = np.asarray(window_dict.get("BVP", []), dtype=float)
     acc_x = np.asarray(window_dict.get("ACC_x", []), dtype=float)
     acc_y = np.asarray(window_dict.get("ACC_y", []), dtype=float)
@@ -162,40 +172,39 @@ def compute_window_features(window_dict: Dict) -> pd.DataFrame:
     else:
         acc_mag = np.array([], dtype=float)
 
-    # Channels to process
-    channels = {
-        "EDA": eda,
-        "TEMP": temp,
-        "BVP": bvp,
-        "ACC_mag": acc_mag,
-    }
+    # Handle NaN/inf values
+    eda_clean = eda[np.isfinite(eda)]
+    bvp_clean = bvp[np.isfinite(bvp)]
+    acc_mag_clean = acc_mag[np.isfinite(acc_mag)]
 
-    # Extract features for each channel
-    for channel_name, signal in channels.items():
-        # Basic statistics
-        basic_stats = compute_basic_stats(signal)
-        for stat_name, stat_value in basic_stats.items():
-            features[f"{channel_name}_{stat_name}"] = stat_value
+    # 1. eda_mean
+    features["eda_mean"] = float(np.mean(eda_clean)) if len(eda_clean) > 0 else 0.0
 
-        # Slope
-        features[f"{channel_name}_slope"] = compute_slope(signal)
+    # 2. eda_deriv_std (std of first difference)
+    if len(eda_clean) >= 2:
+        eda_diff = np.diff(eda_clean)
+        features["eda_deriv_std"] = float(np.std(eda_diff)) if len(eda_diff) > 0 else 0.0
+    else:
+        features["eda_deriv_std"] = 0.0
 
-        # Std of first difference
-        features[f"{channel_name}_std_diff"] = compute_std_first_diff(signal)
+    # 3. eda_deriv_pos_rate (fraction of positive derivatives)
+    if len(eda_clean) >= 2:
+        eda_diff = np.diff(eda_clean)
+        pos_count = np.sum(eda_diff > 0)
+        features["eda_deriv_pos_rate"] = float(pos_count / len(eda_diff)) if len(eda_diff) > 0 else 0.5
+    else:
+        features["eda_deriv_pos_rate"] = 0.5
 
-        # Spectral features for BVP and ACC_mag
-        if channel_name in ["BVP", "ACC_mag"]:
-            spectral = compute_spectral_features(signal, fs=FS)
-            for spec_name, spec_value in spectral.items():
-                features[f"{channel_name}_{spec_name}"] = spec_value
+    # 4. bvp_std
+    features["bvp_std"] = float(np.std(bvp_clean)) if len(bvp_clean) > 0 else 0.0
 
-        # EDA extras
-        if channel_name == "EDA":
-            eda_extras = compute_eda_extras(signal)
-            for extra_name, extra_value in eda_extras.items():
-                features[f"{channel_name}_{extra_name}"] = extra_value
+    # 5. acc_magnitude_mean
+    features["acc_magnitude_mean"] = float(np.mean(acc_mag_clean)) if len(acc_mag_clean) > 0 else 0.0
 
-    # Create DataFrame
+    # 6. acc_var (variance, not std)
+    features["acc_var"] = float(np.var(acc_mag_clean)) if len(acc_mag_clean) > 0 else 0.0
+
+    # Create DataFrame with only the expected features
     df = pd.DataFrame([features])
     return df
 
@@ -245,6 +254,48 @@ def comfort_env(temp_c: float, humidity: float, aqi: int) -> float:
 def circadian_factor(local_hour: int) -> float:
     """Compute circadian factor based on local hour."""
     return 1.0 if 7 <= local_hour <= 21 else 0.7
+
+
+def classify_state(cav_smooth: float, parts: dict) -> str:
+    """
+    Map EDON scores to a discrete state.
+    
+    States:
+    - restorative: Very low stress (p_stress < 0.2)
+    - focus: Moderate stress (0.2-0.5) with strong alignment (env >= 0.8, circadian >= 0.9)
+    - balanced: Moderate stress without strong alignment, or low-moderate stress
+    - overload: High stress (p_stress >= 0.8)
+    
+    Args:
+        cav_smooth: Smoothed CAV score (for future use)
+        parts: Dictionary with 'p_stress', 'env', 'circadian' scores
+        
+    Returns:
+        State string: 'restorative', 'focus', 'balanced', or 'overload'
+    """
+    p_stress = float(parts.get("p_stress", 0.0))
+    env = float(parts.get("env", 0.0))
+    circadian = float(parts.get("circadian", 0.0))
+
+    # 🚨 High stress = overload, always
+    if p_stress >= 0.80:
+        return "overload"
+
+    # Very low stress = restorative
+    if p_stress < 0.2:
+        return "restorative"
+
+    # Focus: moderate stress with strong alignment & good environment
+    # Requires: 0.2 <= p_stress <= 0.5 AND env >= 0.8 AND circadian >= 0.9
+    if 0.2 <= p_stress <= 0.5 and env >= 0.8 and circadian >= 0.9:
+        return "focus"
+
+    # Balanced: moderate stress without strong alignment, or other moderate cases
+    if p_stress < 0.8:
+        return "balanced"
+
+    # Fallback (shouldn't reach here, but safety)
+    return "balanced"
 
 
 class CAVEngine:
@@ -319,22 +370,29 @@ class CAVEngine:
         overlap = [c for c in got if c in expected]
         ratio = (len(overlap) / max(1, len(expected)))
 
-        print(
-            f"[FEAT] expected={len(expected)} got={len(got)} "
-            f"overlap={len(overlap)} ({ratio:.1%})",
-            flush=True,
-        )
-        if missing[:10]:
-            print("[FEAT] missing (first 10):", missing[:10], flush=True)
-        if unexpected[:10]:
-            print("[FEAT] unexpected (first 10):", unexpected[:10], flush=True)
+        # Only log if there's a significant mismatch (not for raw windows that get featurized)
+        if ratio < 0.8:
+            print(
+                f"[FEAT] expected={len(expected)} got={len(got)} "
+                f"overlap={len(overlap)} ({ratio:.1%})",
+                flush=True,
+            )
+            if missing[:10]:
+                print("[FEAT] missing (first 10):", missing[:10], flush=True)
+            if unexpected[:10]:
+                print("[FEAT] unexpected (first 10):", unexpected[:10], flush=True)
 
         # Hard guard: avoid silently zero-filling a mismatched schema
-        if ratio < 0.8:
+        # Only enforce for already-featurized payloads (ratio check)
+        # Raw windows will be featurized by compute_window_features, so they should match
+        relaxed_guard = os.getenv("EDON_RELAXED_GUARD", "0") == "1"
+        if ratio < 0.8 and not relaxed_guard:
             raise RuntimeError(
                 f"Only {ratio:.1%} of expected features present; schema mismatch. "
-                f"Missing={len(missing)} Unexpected={len(unexpected)}"
+                f"Missing={len(missing)} Unexpected={len(unexpected)}. "
+                f"Expected features: {expected[:10]}... Got: {got[:10]}..."
             )
+        # If relaxed guard is enabled, continue (zero-fill later during reindex)
 
         # Reindex to match training feature order (safe now)
         df_features = df_features.reindex(columns=self.feature_names, fill_value=0.0)
@@ -396,15 +454,15 @@ class CAVEngine:
         cav_smooth_int = int(self.cav_smooth * 10000)
         self.cav_prev = cav_raw_int
 
-        # Get state from smoothed CAV
-        state = self.state_from_cav(cav_smooth_int)
-
         parts = {
             "bio": float(bio_score),
             "env": float(env_comfort),
             "circadian": float(circ_factor),
             "p_stress": float(p_stress),
         }
+
+        # Get state from p_stress (primary driver)
+        state = classify_state(cav_smooth_int, parts)
 
         return cav_raw_int, cav_smooth_int, state, parts
 

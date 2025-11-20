@@ -7,7 +7,7 @@ import time
 import os
 from pathlib import Path
 from app import __version__
-from app.routes import batch, telemetry, memory, dashboard
+from app.routes import batch, telemetry, memory, dashboard, metrics
 from app.routes.streaming import router as streaming_router
 from app.routes.ingest import router as ingest_router
 from app.routes.models import router as models_router
@@ -42,6 +42,7 @@ app.add_middleware(
 # Include routers
 app.include_router(batch.router)
 app.include_router(telemetry.router)
+app.include_router(metrics.router)
 app.include_router(memory.router)
 app.include_router(streaming_router)
 app.include_router(ingest_router)

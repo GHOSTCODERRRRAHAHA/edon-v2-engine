@@ -56,10 +56,13 @@ class BatchRequest(BaseModel):
 class BatchResponseItem(BaseModel):
     """Single item in batch response."""
     
-    cav_raw: int
-    cav_smooth: int
-    state: str
-    parts: Dict[str, float]
+    ok: bool = True
+    error: Optional[str] = None
+    
+    cav_raw: Optional[int] = None
+    cav_smooth: Optional[int] = None
+    state: Optional[str] = None
+    parts: Optional[Dict[str, float]] = None
 
 
 class BatchResponse(BaseModel):
@@ -75,6 +78,7 @@ class HealthResponse(BaseModel):
     
     ok: bool = Field(..., description="Service health status")
     model: str = Field(..., description="Model identifier")
+    uptime_s: Optional[float] = Field(None, description="Server uptime in seconds")
 
 
 class TelemetryResponse(BaseModel):
